@@ -1,0 +1,46 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # Run manually: GitHub → Actions tab → "Run workflow"
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build (unsigned – will be signed by E-Sign on device)
+        working-directory: MyInvestmentTracker
+        run: |
+          xcodebuild \
+            -project MyInvestmentTracker.xcodeproj \
+            -scheme MyInvestmentTracker \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Package as unsigned IPA
+        working-directory: MyInvestmentTracker
+        run: |
+          APP_PATH=$(find build -name "*.app" -not -path "*/Build/Intermediates*" | head -1)
+          echo "Found app at: $APP_PATH"
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r MyInvestmentTracker-unsigned.ipa Payload/
+          echo "IPA size: $(du -sh MyInvestmentTracker-unsigned.ipa)"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyInvestmentTracker-Unsigned-IPA
+          path: MyInvestmentTracker/MyInvestmentTracker-unsigned.ipa
+          retention-days: 30
